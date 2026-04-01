@@ -23,9 +23,9 @@ export function formatDateTime(value: string): string {
 export function statusLabel(status: string): string {
   switch (status) {
     case "ready":
-      return "Canli";
+      return "Canlı";
     case "partial":
-      return "Kismi";
+      return "Kısmi";
     case "pending":
       return "Beklemede";
     default:

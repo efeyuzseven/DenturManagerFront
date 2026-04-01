@@ -6,9 +6,74 @@ import { TrendPanel } from "./components/TrendPanel";
 import { formatDateTime, formatMoney, statusLabel } from "./lib/format";
 import { getDashboardOverview } from "./services/dashboardApi";
 import type { ActivityItem, DashboardPayload, ProjectFinanceSnapshot } from "./types/dashboard";
+import reservationLogo from "./images/peremerezervasyonlogo.png";
+import denturLogo from "./images/dentur-logo-3.png";
+import denturWideLogo from "./images/dentur_logo_157x50.png";
 
 type FilterMode = "day" | "month" | "year";
 type ProjectSection = "reservation" | "evrak" | "avrasya";
+type ProjectTabDefinition = {
+  key: ProjectSection;
+  title: string;
+  logo: string;
+};
+
+const PROJECT_ORDER_STORAGE_KEY = "dentur-manager-project-order";
+const projectTabDefinitions: ProjectTabDefinition[] = [
+  {
+    key: "reservation",
+    title: "Rezervasyon",
+    logo: reservationLogo,
+  },
+  {
+    key: "evrak",
+    title: "EvrakTakip",
+    logo: denturLogo,
+  },
+  {
+    key: "avrasya",
+    title: "Avrasya",
+    logo: denturWideLogo,
+  },
+];
+
+function normalizeProjectOrder(order?: string[]): ProjectSection[] {
+  const allowed = new Set<ProjectSection>(projectTabDefinitions.map((item) => item.key));
+  const normalized: ProjectSection[] = [];
+
+  for (const item of order || []) {
+    if (allowed.has(item as ProjectSection) && !normalized.includes(item as ProjectSection)) {
+      normalized.push(item as ProjectSection);
+    }
+  }
+
+  for (const item of projectTabDefinitions) {
+    if (!normalized.includes(item.key)) {
+      normalized.push(item.key);
+    }
+  }
+
+  return normalized;
+}
+
+function getInitialProjectOrder(): ProjectSection[] {
+  if (typeof window === "undefined") {
+    return normalizeProjectOrder();
+  }
+
+  try {
+    const storedValue = window.localStorage.getItem(PROJECT_ORDER_STORAGE_KEY);
+
+    if (!storedValue) {
+      return normalizeProjectOrder();
+    }
+
+    const parsedValue = JSON.parse(storedValue) as string[];
+    return normalizeProjectOrder(parsedValue);
+  } catch {
+    return normalizeProjectOrder();
+  }
+}
 
 function formatDate(value: Date) {
   return value.toISOString().slice(0, 10);
@@ -58,6 +123,8 @@ function App() {
   const [selectedMonth, setSelectedMonth] = useState(formatDate(new Date()).slice(0, 7));
   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
   const [section, setSection] = useState<ProjectSection>("reservation");
+  const [projectOrder, setProjectOrder] = useState<ProjectSection[]>(() => getInitialProjectOrder());
+  const [draggingProject, setDraggingProject] = useState<ProjectSection | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -126,6 +193,10 @@ function App() {
     };
   }, [dashboardQuery]);
 
+  useEffect(() => {
+    window.localStorage.setItem(PROJECT_ORDER_STORAGE_KEY, JSON.stringify(projectOrder));
+  }, [projectOrder]);
+
   const currentSource = useMemo(() => getProjectSource(data, section), [data, section]);
 
   const activities = useMemo<ActivityItem[]>(() => {
@@ -135,32 +206,46 @@ function App() {
   }, [currentSource]);
 
   const projectTabs = useMemo(
-    () => [
-      {
-        key: "reservation" as const,
-        title: "Rezervasyon",
-        subtitle: getProjectSource(data, "reservation")?.status || "pending",
-      },
-      {
-        key: "evrak" as const,
-        title: "EvrakTakip",
-        subtitle: getProjectSource(data, "evrak")?.status || "pending",
-      },
-      {
-        key: "avrasya" as const,
-        title: "Avrasya",
-        subtitle: getProjectSource(data, "avrasya")?.status || "pending",
-      },
-    ],
-    [data]
+    () =>
+      projectOrder.map((key) => {
+        const definition = projectTabDefinitions.find((item) => item.key === key);
+
+        return {
+          key,
+          title: definition?.title ?? key,
+          logo: definition?.logo ?? denturLogo,
+          subtitle: getProjectSource(data, key)?.status || "pending",
+        };
+      }),
+    [data, projectOrder]
   );
 
   const notes = currentSource
     ? [...currentSource.highlights, ...currentSource.issues]
     : [];
 
+  function moveProjectTab(from: ProjectSection, to: ProjectSection) {
+    if (from === to) {
+      return;
+    }
+
+    setProjectOrder((currentOrder) => {
+      const nextOrder = [...currentOrder];
+      const fromIndex = nextOrder.indexOf(from);
+      const toIndex = nextOrder.indexOf(to);
+
+      if (fromIndex === -1 || toIndex === -1) {
+        return currentOrder;
+      }
+
+      nextOrder.splice(fromIndex, 1);
+      nextOrder.splice(toIndex, 0, from);
+      return nextOrder;
+    });
+  }
+
   return (
-    <main className="workspace">
+    <main className={`workspace ${sidebarOpen ? "workspace--expanded" : "workspace--collapsed"}`}>
       <aside className={`sidebar ${sidebarOpen ? "is-open" : "is-collapsed"}`}>
         <div className="sidebar__top">
           <button
@@ -184,11 +269,21 @@ function App() {
                 key={tab.key}
                 className={`project-menu__item ${section === tab.key ? "is-active" : ""}`}
                 onClick={() => setSection(tab.key)}
+                onDragStart={() => setDraggingProject(tab.key)}
+                onDragEnd={() => setDraggingProject(null)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={() => {
+                  if (draggingProject) {
+                    moveProjectTab(draggingProject, tab.key);
+                  }
+                  setDraggingProject(null);
+                }}
                 type="button"
                 title={tab.title}
+                draggable
               >
                 <span className="project-menu__icon">
-                  {tab.title.slice(0, 1)}
+                  <img src={tab.logo} alt={`${tab.title} logosu`} />
                 </span>
                 {sidebarOpen ? (
                   <span className="project-menu__text">
@@ -215,12 +310,12 @@ function App() {
       <section className="dashboard">
         <header className="topbar panel">
           <div>
-            <p className="topbar__eyebrow">Secili Proje</p>
+            <p className="topbar__eyebrow">Seçili Proje</p>
             <h1>{currentSource?.name ?? "Proje bekleniyor"}</h1>
             <p className="topbar__description">
               {currentSource
-                ? `${currentSource.name} gelir, gider ve operasyonel finans ozeti`
-                : "Projeye ait veri yuklenemedi."}
+                ? `${currentSource.name} gelir, gider ve operasyonel finans özeti`
+                : "Projeye ait veri yüklenemedi."}
             </p>
           </div>
 
@@ -233,7 +328,7 @@ function App() {
                   onClick={() => setFilterMode(mode)}
                   type="button"
                 >
-                  {mode === "day" ? "Gun" : mode === "month" ? "Ay" : "Yil"}
+                  {mode === "day" ? "Gün" : mode === "month" ? "Ay" : "Yıl"}
                 </button>
               ))}
             </div>
@@ -262,7 +357,7 @@ function App() {
 
             {filterMode === "year" ? (
               <label className="filter-input">
-                <span>Yil</span>
+                <span>Yıl</span>
                 <input
                   type="number"
                   min="2020"
@@ -277,27 +372,27 @@ function App() {
 
         {error ? (
           <section className="error-banner">
-            <strong>Baglanti kurulamadi.</strong>
+            <strong>Bağlantı kurulamadı.</strong>
             <p>{error}</p>
-            <p>`npm run dev` ile frontend ve backend'i birlikte kaldir. Sonra `backend/.env` icini doldur.</p>
+            <p>`npm run dev` ile frontend ve backend'i birlikte kaldır. Sonra `backend/.env` içini doldur.</p>
           </section>
         ) : null}
 
         <section className="metrics-grid">
           <MetricCard
-            eyebrow="Gercek Gelir"
+            eyebrow="Gerçek Gelir"
             value={formatMoney(currentSource?.realizedIncome ?? 0)}
-            caption={`${currentSource?.name ?? "Proje"} icin secili donem tahsilati`}
+            caption={`${currentSource?.name ?? "Proje"} için seçili dönem tahsilatı`}
             tone="income"
           />
           <MetricCard
-            eyebrow="Gercek Gider"
+            eyebrow="Gerçek Gider"
             value={formatMoney(currentSource?.realizedExpense ?? 0)}
-            caption="Secili projedeki gerceklesen gider"
+            caption="Seçili projedeki gerçekleşen gider"
             tone="expense"
           />
           <MetricCard
-            eyebrow="Net Sonuc"
+            eyebrow="Net Sonuç"
             value={formatMoney(currentSource?.profit ?? 0)}
             caption="Gelir eksi gider"
             tone="neutral"
@@ -307,23 +402,23 @@ function App() {
             value={formatMoney(
               (currentSource?.potentialIncome ?? 0) - (currentSource?.potentialExpense ?? 0)
             )}
-            caption="Potansiyel gelir ve gider farki"
+            caption="Potansiyel gelir ve gider farkı"
             tone="neutral"
-            aside={<span className="metric-pill">{loading ? "Yukleniyor" : statusLabel(currentSource?.status || "pending")}</span>}
+            aside={<span className="metric-pill">{loading ? "Yükleniyor" : statusLabel(currentSource?.status || "pending")}</span>}
           />
         </section>
 
         <section className="content-grid">
           <TrendPanel
-            title={`${currentSource?.name ?? "Proje"} Gunluk Akis`}
-            subtitle={`${data?.range.label ?? "-"} araligindaki trend`}
+            title={`${currentSource?.name ?? "Proje"} Günlük Akış`}
+            subtitle={`${data?.range.label ?? "-"} aralığındaki trend`}
             points={currentSource?.trend ?? []}
           />
 
           <section className="panel stack-panel">
             <div className="panel__header">
               <div>
-                <h3>Donem Ozeti</h3>
+                <h3>Dönem Özeti</h3>
                 <p>
                   {data ? `${data.range.start} / ${data.range.end}` : "- / -"}
                 </p>
@@ -336,7 +431,7 @@ function App() {
             </div>
 
             <div className="summary-box">
-              <span>Son guncelleme</span>
+              <span>Son güncelleme</span>
               <strong>{currentSource ? formatDateTime(currentSource.lastUpdatedAt) : "-"}</strong>
             </div>
 
@@ -364,8 +459,8 @@ function App() {
           <section className="panel">
             <div className="panel__header">
               <div>
-                <h3>Proje Notlari</h3>
-                <p>Secili proje icin ozet ve entegrasyon notlari</p>
+                <h3>Proje Notları</h3>
+                <p>Seçili proje için özet ve entegrasyon notları</p>
               </div>
             </div>
 
@@ -373,7 +468,7 @@ function App() {
               {notes.length === 0 ? (
                 <article className="insight-card">
                   <span />
-                  <p>Bu proje icin ek not bulunmuyor.</p>
+                  <p>Bu proje için ek not bulunmuyor.</p>
                 </article>
               ) : (
                 notes.map((item) => (

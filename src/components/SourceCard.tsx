@@ -48,7 +48,7 @@ export function SourceCard({ source }: SourceCardProps) {
       ) : null}
 
       <p className="source-card__footer">
-        Son guncelleme: {formatDateTime(source.lastUpdatedAt)}
+        Son güncelleme: {formatDateTime(source.lastUpdatedAt)}
       </p>
     </article>
   );

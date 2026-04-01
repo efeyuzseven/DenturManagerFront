@@ -17,7 +17,7 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
 
       <div className="activity-feed">
         {items.length === 0 ? (
-          <p className="empty-state">Henuz gosterilecek hareket yok.</p>
+          <p className="empty-state">Henüz gösterilecek hareket yok.</p>
         ) : null}
 
         {items.map((item) => (
