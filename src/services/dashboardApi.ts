@@ -9,7 +9,9 @@ export interface DashboardQuery {
   start?: string;
   end?: string;
   label?: string;
-  mode?: "preset" | "day" | "month" | "year";
+  mode?: "preset" | "day" | "month" | "year" | "custom";
+  evrakSegment?: string;
+  source?: "reservation" | "evrak" | "avrasya";
 }
 
 export async function getDashboardOverview(query: DashboardQuery) {
@@ -30,6 +32,14 @@ export async function getDashboardOverview(query: DashboardQuery) {
 
   if (query.mode) {
     params.set("mode", query.mode);
+  }
+
+  if (query.evrakSegment) {
+    params.set("evrakSegment", query.evrakSegment);
+  }
+
+  if (query.source) {
+    params.set("source", query.source);
   }
 
   const response = await fetch(`${apiBaseUrl}/dashboard/overview?${params.toString()}`);

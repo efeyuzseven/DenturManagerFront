@@ -20,6 +20,14 @@ export interface ActivityItem {
   type: "income" | "expense";
 }
 
+export interface SourceSegment {
+  key: string;
+  label: string;
+  realizedIncome: number;
+  realizedExpense: number;
+  profit: number;
+}
+
 export interface ProjectFinanceSnapshot {
   slug: string;
   name: string;
@@ -35,6 +43,7 @@ export interface ProjectFinanceSnapshot {
   highlights: string[];
   activities: ActivityItem[];
   issues: string[];
+  segments?: SourceSegment[];
 }
 
 export interface DashboardPayload {

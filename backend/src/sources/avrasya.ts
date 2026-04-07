@@ -208,9 +208,7 @@ export async function fetchAvrasyaSnapshot(
       };
     });
 
-    const issues: string[] = [
-      "Avrasya verisi su an yalnizca odenmis biletler uzerinden gelir ve yolcu tarafini kapsiyor.",
-    ];
+    const issues: string[] = [];
 
     if (nonTryCount > 0) {
       issues.push(
@@ -221,7 +219,7 @@ export async function fetchAvrasyaSnapshot(
     return {
       slug: source.slug,
       name: source.name,
-      status: "partial",
+      status: "ready",
       lastUpdatedAt: new Date().toISOString(),
       currencyTotals,
       realizedIncome,
@@ -231,6 +229,7 @@ export async function fetchAvrasyaSnapshot(
       profit: realizedIncome,
       trend,
       highlights: [
+        "Avrasya tarafinda gider takibi bulunmadigi icin net sonuc gelir uzerinden hesaplanir.",
         `${context.range.label} icinde ${totalPassengers.toLocaleString("tr-TR")} yolcu tasindi.`,
         `${tickets.length.toLocaleString("tr-TR")} adet odenmis bilet kaydi bulundu.`,
         `Ortalama bilet tutari ${Math.round(averageTicketValue).toLocaleString("tr-TR")} olarak hesaplandi.`,

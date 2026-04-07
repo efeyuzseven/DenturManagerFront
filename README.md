@@ -49,15 +49,20 @@ npm run build:server
 
 - `RESERVATION_API_BASE`
 - `RESERVATION_API_TOKEN`
+- `RESERVATION_AUTH_EMAIL`
+- `RESERVATION_AUTH_PASSWORD`
 - `EVRAK_API_BASE`
 - `EVRAK_API_TOKEN`
+- `EVRAK_AUTH_EMAIL`
+- `EVRAK_AUTH_PASSWORD`
 - `AVRASYA_API_BASE`
 - `AVRASYA_API_TOKEN`
 
 Notlar:
 
-- Rezervasyon muhasebe endpoint'leri `Authorize` kullaniyor, bu nedenle token tanimlamak gerekir.
+- Rezervasyon muhasebe endpoint'leri `Authorize` kullaniyor. Istersen dogrudan `RESERVATION_API_TOKEN`, istersen `RESERVATION_AUTH_EMAIL` + `RESERVATION_AUTH_PASSWORD` tanimlayabilirsin. Backend tokeni otomatik alir.
 - EvrakTakip tarafinda gelir ve gider toplam endpoint'leri kullanildi.
+- EvrakTakip icin istersen dogrudan `EVRAK_API_TOKEN`, istersen `EVRAK_AUTH_EMAIL` + `EVRAK_AUTH_PASSWORD` tanimlayabilirsin. Backend tokeni otomatik alir.
 - Avrasya tarafinda odenmis bilet tutari ve yolcu sayisi `TourTicket` verisinden toplanir. Bu kaynak simdilik sadece gelir tarafinda `partial` durumundadir.
 
 ## Hazir endpoint

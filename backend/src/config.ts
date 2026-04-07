@@ -9,14 +9,18 @@ export const config = {
   reservation: {
     slug: "reservation",
     name: "Dentur Rezervasyon",
-    apiBase: process.env.RESERVATION_API_BASE || "http://localhost:7058/api",
+    apiBase: process.env.RESERVATION_API_BASE || "https://rezervasyon.denturgrup.com.tr/api",
     token: process.env.RESERVATION_API_TOKEN || "",
+    authEmail: process.env.RESERVATION_AUTH_EMAIL || "",
+    authPassword: process.env.RESERVATION_AUTH_PASSWORD || "",
   },
   evrak: {
     slug: "evrak",
     name: "Dentur Evrak Takip",
-    apiBase: process.env.EVRAK_API_BASE || "https://localhost:44368/api",
+    apiBase: process.env.EVRAK_API_BASE || "http://37.148.212.71:4746/api",
     token: process.env.EVRAK_API_TOKEN || "",
+    authEmail: process.env.EVRAK_AUTH_EMAIL || "",
+    authPassword: process.env.EVRAK_AUTH_PASSWORD || "",
   },
   avrasya: {
     slug: "avrasya",

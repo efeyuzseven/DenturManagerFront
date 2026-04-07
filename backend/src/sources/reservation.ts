@@ -1,4 +1,4 @@
-import { httpGet, toNumber } from "../utils/http.js";
+import { httpGet, httpPost, toNumber } from "../utils/http.js";
 import type {
   ActivityItem,
   ProjectFinanceSnapshot,
@@ -12,6 +12,13 @@ interface ReservationApiResponse<T> {
   statusCode: number;
   isSuccess: boolean;
   message?: string;
+}
+
+interface ReservationTokenResponse {
+  accessToken: string;
+  accessTokenExpiration?: string;
+  refreshToken?: string;
+  refreshTokenExpiration?: string;
 }
 
 interface ReservationTrendRow {
@@ -32,7 +39,13 @@ interface ReservationActivityRow {
   type: "income" | "expense";
 }
 
-function emptySnapshot(config: SourceConfig, status: ProjectFinanceSnapshot["status"], issues: string[]): ProjectFinanceSnapshot {
+const reservationTokenCache = new Map<string, { token: string; expiresAt: number }>();
+
+function emptySnapshot(
+  config: SourceConfig,
+  status: ProjectFinanceSnapshot["status"],
+  issues: string[]
+): ProjectFinanceSnapshot {
   return {
     slug: config.slug,
     name: config.name,
@@ -51,6 +64,54 @@ function emptySnapshot(config: SourceConfig, status: ProjectFinanceSnapshot["sta
   };
 }
 
+function readExpiry(tokenResponse: ReservationTokenResponse): number {
+  const expiresAt = tokenResponse.accessTokenExpiration
+    ? new Date(tokenResponse.accessTokenExpiration).getTime()
+    : Number.NaN;
+
+  if (Number.isFinite(expiresAt)) {
+    return expiresAt;
+  }
+
+  return Date.now() + 10 * 60 * 1000;
+}
+
+async function resolveReservationToken(source: SourceConfig): Promise<string | undefined> {
+  if (source.token) {
+    return source.token;
+  }
+
+  if (!source.authEmail || !source.authPassword) {
+    return undefined;
+  }
+
+  const cacheKey = `${source.slug}:${source.apiBase}:${source.authEmail}`;
+  const cachedToken = reservationTokenCache.get(cacheKey);
+
+  if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) {
+    return cachedToken.token;
+  }
+
+  const tokenResponse = await httpPost<
+    { email: string; password: string },
+    ReservationTokenResponse
+  >(source.apiBase, "/Auth/CreateToken", {
+    email: source.authEmail,
+    password: source.authPassword,
+  });
+
+  if (!tokenResponse.accessToken) {
+    throw new Error("Rezervasyon token alinamadi.");
+  }
+
+  reservationTokenCache.set(cacheKey, {
+    token: tokenResponse.accessToken,
+    expiresAt: readExpiry(tokenResponse),
+  });
+
+  return tokenResponse.accessToken;
+}
+
 export async function fetchReservationSnapshot(
   source: SourceConfig,
   context: SourceContext
@@ -60,21 +121,22 @@ export async function fetchReservationSnapshot(
   }
 
   try {
+    const token = await resolveReservationToken(source);
     const [cashSummary, dailyData, recentTransactions] = await Promise.all([
       httpGet<ReservationApiResponse<Record<string, number>>>(
         source.apiBase,
         "/Accounting/cash-summary",
-        source.token
+        token
       ),
       httpGet<ReservationApiResponse<ReservationTrendRow[]>>(
         source.apiBase,
         `/Accounting/daily-data?days=${context.range.days}`,
-        source.token
+        token
       ),
       httpGet<ReservationApiResponse<ReservationActivityRow[]>>(
         source.apiBase,
         "/Accounting/recent-transactions?count=8",
-        source.token
+        token
       ),
     ]);
 
@@ -118,6 +180,17 @@ export async function fetchReservationSnapshot(
     const strongestCurrency =
       Object.entries(cashSummary.data || {}).sort((a, b) => b[1] - a[1])[0]?.[0] || "TRY";
 
+    const highlights = [
+      `${context.range.label} icinde gerceklesen gelir ${Math.round(totals.realizedIncome).toLocaleString("tr-TR")} TL.`,
+      `Nakit agirlik ${strongestCurrency} tarafinda toplanmis gorunuyor.`,
+    ];
+
+    if (totals.potentialIncome > 0) {
+      highlights.push(
+        `${context.range.label} icinde ${Math.round(totals.potentialIncome).toLocaleString("tr-TR")} TL potansiyel gelir bekliyor.`
+      );
+    }
+
     return {
       slug: source.slug,
       name: source.name,
@@ -131,10 +204,7 @@ export async function fetchReservationSnapshot(
       profit,
       trend,
       activities,
-      highlights: [
-        `${context.range.label} icinde gerceklesen gelir ${Math.round(totals.realizedIncome).toLocaleString("tr-TR")} TL.`,
-        `Nakit agirlik ${strongestCurrency} tarafinda toplanmis gorunuyor.`,
-      ],
+      highlights,
       issues: [],
     };
   } catch (error) {
