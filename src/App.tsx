@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "./index.css";
 import { ActivityFeed } from "./components/ActivityFeed";
 import { MetricCard } from "./components/MetricCard";
+import { ReservationFinancePanel } from "./components/ReservationFinancePanel";
 import { TrendPanel } from "./components/TrendPanel";
 import { formatDateTime, formatMoney, statusLabel } from "./lib/format";
 import { getDashboardOverview } from "./services/dashboardApi";
@@ -86,7 +87,10 @@ function getInitialProjectOrder(): ProjectSection[] {
 }
 
 function formatDate(value: Date) {
-  return value.toISOString().slice(0, 10);
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function formatDateLabel(value: string) {
@@ -642,7 +646,16 @@ function App() {
           </section>
         ) : null}
 
-        <section className="metrics-grid">
+        {section === "reservation" ? (
+          <ReservationFinancePanel
+            realizedIncome={currentSource?.realizedIncome ?? 0}
+            realizedExpense={currentSource?.realizedExpense ?? 0}
+            potentialIncome={currentSource?.potentialIncome ?? 0}
+            potentialExpense={currentSource?.potentialExpense ?? 0}
+          />
+        ) : null}
+
+        {section !== "reservation" ? <section className="metrics-grid">
           <MetricCard
             eyebrow="Gerçek Gelir"
             value={formatMoney(currentSource?.realizedIncome ?? 0)}
@@ -661,7 +674,7 @@ function App() {
             caption="Gelir eksi gider"
             tone="neutral"
           />
-          {section === "reservation" ? (
+          {false ? (
             <MetricCard
               eyebrow="Potansiyel Bakiye"
               value={formatMoney(
@@ -676,7 +689,7 @@ function App() {
               }
             />
           ) : null}
-        </section>
+        </section> : null}
 
         <section className="dashboard-columns">
           <section className="column-stack">

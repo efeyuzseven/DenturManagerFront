@@ -30,6 +30,14 @@ interface ReservationTrendRow {
   potentialExpense: number;
 }
 
+interface ReservationMonthlyRow {
+  month: string;
+  income: number;
+  expense: number;
+  potentialIncome: number;
+  potentialExpense: number;
+}
+
 interface ReservationActivityRow {
   id: string;
   date: string;
@@ -40,6 +48,20 @@ interface ReservationActivityRow {
 }
 
 const reservationTokenCache = new Map<string, { token: string; expiresAt: number }>();
+const reservationMonthLabels = [
+  "Ocak",
+  "Şubat",
+  "Mart",
+  "Nisan",
+  "Mayıs",
+  "Haziran",
+  "Temmuz",
+  "Ağustos",
+  "Eylül",
+  "Ekim",
+  "Kasım",
+  "Aralık",
+] as const;
 
 function emptySnapshot(
   config: SourceConfig,
@@ -122,10 +144,15 @@ export async function fetchReservationSnapshot(
 
   try {
     const token = await resolveReservationToken(source);
-    const [cashSummary, dailyData, recentTransactions] = await Promise.all([
+    const [cashSummary, monthlyData, dailyData, recentTransactions] = await Promise.all([
       httpGet<ReservationApiResponse<Record<string, number>>>(
         source.apiBase,
         "/Accounting/cash-summary",
+        token
+      ),
+      httpGet<ReservationApiResponse<ReservationMonthlyRow[]>>(
+        source.apiBase,
+        "/Accounting/monthly-data",
         token
       ),
       httpGet<ReservationApiResponse<ReservationTrendRow[]>>(
@@ -140,7 +167,7 @@ export async function fetchReservationSnapshot(
       ),
     ]);
 
-    const trend: TrendPoint[] = (dailyData.data || []).map((item) => ({
+    const dailyTrend: TrendPoint[] = (dailyData.data || []).map((item) => ({
       date: item.date.slice(0, 10),
       label: item.formattedDate || item.date.slice(5, 10),
       income: toNumber(item.income),
@@ -149,7 +176,35 @@ export async function fetchReservationSnapshot(
       potentialExpense: toNumber(item.potentialExpense),
     }));
 
-    const totals = trend.reduce(
+    const currentYear = new Date().getFullYear();
+    const selectedYear = Number(context.range.start.slice(0, 4));
+    const selectedMonthIndex = Number(context.range.start.slice(5, 7)) - 1;
+    const supportsRequestedYear = selectedYear === currentYear;
+    const monthlyRows = (monthlyData.data || []).map((item, index) => ({
+      monthIndex: index,
+      label: item.month || reservationMonthLabels[index] || `Ay ${index + 1}`,
+      income: toNumber(item.income),
+      expense: toNumber(item.expense),
+      potentialIncome: toNumber(item.potentialIncome),
+      potentialExpense: toNumber(item.potentialExpense),
+    }));
+    const monthlyTrend: TrendPoint[] = monthlyRows.map((item) => ({
+      date: `${currentYear}-${String(item.monthIndex + 1).padStart(2, "0")}-01`,
+      label: item.label,
+      income: item.income,
+      expense: item.expense,
+      potentialIncome: item.potentialIncome,
+      potentialExpense: item.potentialExpense,
+    }));
+
+    const baseTrend =
+      supportsRequestedYear && (context.range.key === "month" || context.range.key === "year")
+        ? context.range.key === "month"
+          ? monthlyTrend.filter((item) => Number(item.date.slice(5, 7)) - 1 === selectedMonthIndex)
+          : monthlyTrend
+        : dailyTrend;
+
+    const totals = baseTrend.reduce(
       (acc, item) => {
         acc.realizedIncome += item.income;
         acc.realizedExpense += item.expense;
@@ -185,6 +240,12 @@ export async function fetchReservationSnapshot(
       `Nakit agirlik ${strongestCurrency} tarafinda toplanmis gorunuyor.`,
     ];
 
+    const issues: string[] = [];
+
+    if ((context.range.key === "month" || context.range.key === "year") && !supportsRequestedYear) {
+      issues.push("Rezervasyon muhasebe servisi secili donem icin yalnizca mevcut yil ozetini destekliyor.");
+    }
+
     if (totals.potentialIncome > 0) {
       highlights.push(
         `${context.range.label} icinde ${Math.round(totals.potentialIncome).toLocaleString("tr-TR")} TL potansiyel gelir bekliyor.`
@@ -202,10 +263,10 @@ export async function fetchReservationSnapshot(
       potentialIncome: totals.potentialIncome,
       potentialExpense: totals.potentialExpense,
       profit,
-      trend,
+      trend: baseTrend,
       activities,
       highlights,
-      issues: [],
+      issues,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Bilinmeyen hata";

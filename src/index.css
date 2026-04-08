@@ -385,6 +385,110 @@ select {
   margin-top: 18px;
 }
 
+.reservation-finance {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.92fr) minmax(0, 1.08fr);
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.reservation-cash-grid {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.reservation-cash-card,
+.reservation-breakdown-card {
+  padding: 18px 20px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.reservation-cash-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.reservation-cash-card__top strong {
+  font-size: 1rem;
+}
+
+.reservation-cash-card__top span {
+  font-size: 1.25rem;
+  color: rgba(148, 163, 184, 0.92);
+}
+
+.reservation-cash-card b {
+  display: block;
+  margin-top: 14px;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.95rem;
+}
+
+.reservation-breakdown-card strong {
+  display: block;
+  margin-bottom: 16px;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.16rem;
+}
+
+.reservation-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.reservation-breakdown-item {
+  display: grid;
+  gap: 12px;
+  min-height: 126px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(8, 15, 28, 0.38)),
+    rgba(8, 15, 28, 0.46);
+}
+
+.reservation-breakdown-item span {
+  color: currentColor;
+  font-size: 0.95rem;
+}
+
+.reservation-breakdown-item b {
+  align-self: end;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(1.55rem, 2vw, 2.2rem);
+  line-height: 1;
+}
+
+.reservation-breakdown-item--potential-income {
+  color: #60a5fa;
+}
+
+.reservation-breakdown-item--income {
+  color: #38bdf8;
+}
+
+.reservation-breakdown-item--potential-income-gap {
+  color: #93c5fd;
+}
+
+.reservation-breakdown-item--potential-expense {
+  color: #fda4af;
+}
+
+.reservation-breakdown-item--expense {
+  color: #ef4444;
+}
+
+.reservation-breakdown-item--potential-expense-gap {
+  color: #fecdd3;
+}
+
 .segment-card {
   display: grid;
   gap: 10px;
@@ -826,6 +930,7 @@ select {
   }
 
   .topbar,
+  .reservation-finance,
   .metrics-grid,
   .content-grid,
   .dashboard-columns {
@@ -834,6 +939,10 @@ select {
 
   .evrak-filters {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .reservation-breakdown-grid {
+    grid-template-columns: 1fr;
   }
 
   .trend-panel__actions {
